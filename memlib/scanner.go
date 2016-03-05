@@ -9,7 +9,7 @@ import (
 // A type that performs memory scans on a pid
 type Scanner struct {
 	pid int
-	addresses map[uintptr]int
+	regions []VMARegion
 }
 
 // A virtual memory address region
@@ -17,15 +17,20 @@ type VMARegion struct {
 	Begin, End uint64
 }
 
+type ScanResult struct {
+	Address uintptr
+	Value uint64
+}
+
 // Returns an initialized scanner
 func NewScanner(pid int) *Scanner {
-	return &Scanner{pid, nil}
+	return &Scanner{pid, ScanVirtualMemory(pid)}
 }
 
 // Scans the /proc/pid/maps file for the process' mapped 
 // virtual memory
-func (s *Scanner) ScanVirtualMemory() []VMARegion {
-	filename := fmt.Sprintf("/proc/%d/maps", s.pid)
+func ScanVirtualMemory(pid int) []VMARegion {
+	filename := fmt.Sprintf("/proc/%d/maps", pid)
 	f, err := os.Open(filename)
 	Check(err)
 
@@ -46,30 +51,17 @@ func (s *Scanner) ScanVirtualMemory() []VMARegion {
 	return regions
 }
 
-// Returns the addresses that store val
-func (s *Scanner) SearchAddresses(val int) []uintptr {
+// Scans all addresses and filters them by value.
+func (s *Scanner) ScanAll(val uint64) []ScanResult {
 	Attach(s.pid)
 	defer RecoverAndDetach(s.pid)
 
-	if s.addresses == nil {
-		// scan virtual memory of pid
-		regions := s.ScanVirtualMemory()
-		fmt.Printf("Read %d memory regions.\n", len(regions))
-		s.addresses = make(map[uintptr]int)
-		// search for all addressess with val
-		return s.searchAllAddresses(val, regions)
-	} else {
-		return s.searchExistingAddresses(val)
-	}
-}
-
-func (s *Scanner) searchAllAddresses(val int, regions []VMARegion) []uintptr {
 	count := 0
 	countErrors := 0
-	out_ptrs := make([]uintptr, 0, 100)
+	results := make([]ScanResult, 0, 100)
 
 	fmt.Println("Reading addresses.")
-	for _, region := range regions {
+	for _, region := range s.regions {
 		size := region.End - region.Begin
 
 		fmt.Printf("Reading address region %x-%x with size %d.\n", region.Begin, region.End, size)
@@ -83,49 +75,62 @@ func (s *Scanner) searchAllAddresses(val int, regions []VMARegion) []uintptr {
 				continue
 			}
 
-			if v == uint64(val) {
-				s.addresses[addr] = val
-				out_ptrs = append(out_ptrs, addr)
+			if v == val {
+				results = append(results, ScanResult{addr, v})
 			}
 		}
 	}
 	fmt.Printf("Searched %d addresses with %d errors.\n", count, countErrors)
-	return out_ptrs
+	return results
 }
 
-func (s *Scanner) searchExistingAddresses(val int) []uintptr {
+// Scans addresses in ScanResult array and returns an updated
+// ScanResult array.
+func (s *Scanner) Scan(addresses []ScanResult) []ScanResult {
+	Attach(s.pid)
+	defer RecoverAndDetach(s.pid)
+
 	count := 0
 	countErrors := 0
-	out_ptrs := make([]uintptr, 0, 100)
+	results := make([]ScanResult, 0, 100)
 
 	fmt.Println("Reading addresses.")
-	for addr, _ := range s.addresses {
-		r_val, err := Peek(s.pid, addr)
+	for _, result := range addresses {
+		r_val, err := Peek(s.pid, result.Address)
 		count++
 		if err != nil {
 			countErrors++
 			continue
 		}
 		
-		if r_val != uint64(val) {
-			delete(s.addresses, addr)
-		} else {
-			s.addresses[addr] = val
-			out_ptrs = append(out_ptrs, addr)
+		results = append(results, ScanResult{result.Address, r_val})
+	}
+	return results
+}
+
+// Scans addresses in ScanResult array and returns those that are
+// storing val.
+func (s *Scanner) ScanAndFilter(val uint64, addresses []ScanResult) []ScanResult {
+	results := s.Scan(addresses)
+	out := make([]ScanResult, 0, 100)
+	// filter results by value
+	for _, result := range results {
+		if result.Value == val {
+			out = append(out, result)
 		}
 	}
-	return out_ptrs
+	return out
 }
 
 // Writes the value to the address passed in.
 // TODO: return error rather than panic
-func (s *Scanner) WriteToAddress(addr uintptr, val int) {
+func (s *Scanner) WriteToAddress(addr uintptr, val uint64) {
 	fmt.Printf("Writing value %d to address %x on pid %d\n", val, addr, s.pid)
 	
 	Attach(s.pid)
 	defer RecoverAndDetach(s.pid)
 
-	err := Poke(s.pid, addr, uint64(val))
+	err := Poke(s.pid, addr, val)
 	if err != nil {
 		fmt.Println(s.pid)
 		panic(err)
