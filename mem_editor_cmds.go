@@ -15,14 +15,54 @@ func NewCmdHandler(pid int) *CmdHandler {
 	return &CmdHandler{scanner, nil}
 }
 
+// Returns a help prompt describing the commands that CmdHandler
+// can take as input.
 func (c *CmdHandler) Usage() string {
-	// TODO: implement
-	return "Usage: "
+	help := "Prompt:\n" +
+		"%d>: prompt where %d is the number of tracking " +
+		"addresses.\n" +
+		"Commands:\n" +
+		"* scan val - scans the current values of all " +
+		"tracked addresses and filters the tracked " +
+		"addresses by value. Scans the whole of mapped " +
+		"memory if there are no tracked addresses (such " +
+		"as on startup or after a reset).\n" +
+		"* list - lists all tracked addresses and their " +
+		"last values.\n" +
+		"* update - scans the current values of all " +
+		"tracked addresses.\n" +
+		"* set addr val - Writes val to address addr.\n" +
+		"* setall val - Writes val to all tracked " +
+		"addresses.\n" +
+		"* reset - Removes all tracked addresses. The " +
+		"next scan will read all of mapped memory.\n" +
+		"* help - prints the commands\n"
+        
+	return help
 }
 
 // %d>: shell where %d is the number of tracking addresses
 // commands:
-// scan val - read the current values of all tracked addresses and filter the tracked addresses by value
+//  scan val - scans the current values of all tracked addresses and
+//   filters the tracked addresses by value. Scans the whole of 
+//   mapped memory if there are no tracked addresses (such as on 
+//   startup or after a reset).
+//
+//  list - lists all tracked addresses and their last values.
+//
+//  update - scans the current values of all tracked addresses.
+//
+//  set addr val - Writes val to address addr.
+//
+//  setall val - Writes val to all tracked addresses.
+//
+//  reset - Removes all tracked addresses. The next scan will read
+//   all of mapped memory.
+//
+//  help - prints the commands
+
+
+// scan val - scans the current values of all tracked addresses and filter the tracked addresses by value
 // list - list all tracked addresses and their last values
 // update - read the current values of all tracked addresses
 // set addr val
