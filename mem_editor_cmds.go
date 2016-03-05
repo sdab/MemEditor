@@ -60,15 +60,6 @@ func (c *CmdHandler) Usage() string {
 //   all of mapped memory.
 //
 //  help - prints the commands
-
-
-// scan val - scans the current values of all tracked addresses and filter the tracked addresses by value
-// list - list all tracked addresses and their last values
-// update - read the current values of all tracked addresses
-// set addr val
-// setall val
-// reset
-// help
 func (c *CmdHandler) HandleNextCmd() {
 	fmt.Printf("%d>:", len(c.addresses))
 	var cmd string
@@ -113,8 +104,6 @@ func (c *CmdHandler) HandleNextCmd() {
 	} else if cmd == "help" {
 		fmt.Println(c.Usage())
 	} else {
-		fmt.Printf("Unknown command. %s\n", c.Usage())
+		fmt.Printf("Unknown command.\nHelp text:\n%s", c.Usage())
 	}
-
-
 }
