@@ -21,8 +21,14 @@ func Attach(pid int) {
 }
 
 func Detach(pid int) {
-	err := unix.PtraceDetach(pid)
-	Check(err)
+	unix.PtraceDetach(pid)
+}
+
+func RecoverAndDetach(pid int) {
+        if r := recover(); r != nil {
+		fmt.Println("Recovered panic:", r)
+        }
+	Detach(pid)
 }
 
 func Peek(pid int, addr uintptr) (uint64, error) {
@@ -43,9 +49,3 @@ func Poke(pid int, addr uintptr, val uint64) error {
 	return err
 }
 
-func RecoverAndDetach(pid int) {
-        if r := recover(); r != nil {
-		fmt.Println("Recovered panic:", r)
-        }
-	Detach(pid)
-}
